@@ -94,10 +94,7 @@ class MagnetarRonchi22:
                                                       k_coefficients=pars["k_coefficients"])
 
         # viscous timescale
-        t_vis = MagnetarRonchi22.t_vis(pars)#(NS_mass=pars["NS_mass"],NS_radius=pars["NS_radius"],
-                                            #characteristic_disk_temp=pars["characteristic_disk_temp"],
-                                            #circularization_disk_radius=pars["circularization_disk_radius"],
-                                            #method_t_vis=pars["method_t_vis"])
+        t_vis = MagnetarRonchi22.t_vis(pars)
 
         # eddington lum
         Ledd = MagnetarRonchi22.Ledd(NS_mass=pars["NS_mass"], opacity=pars["disk_opacity"])
@@ -537,6 +534,7 @@ class MagnetarRonchi22:
     @staticmethod
     def Ngrav(omega:float, alpha:float, NS_inertia:float, ns_ellipticity:float) -> float:
         '''
+        Gravitational wave emissio from non-axysymmetric, oblate object. Following Gompertz+2014
         (2.0 * graviational_constant * moi ** 2 * epsilon_b ** 2 / (5.0 * speed_of_light ** 5)) * omega ** 6 * np.sin(chi)**2 * (
                     1.0 + 15.0 * np.sin(chi)**2)
         :param omega:
@@ -556,6 +554,11 @@ class MagnetarRonchi22:
     @staticmethod
     def Ndip(B:float, omega:float, r_m:float, r_lc:float, alpha:float, NS_radius:float,NS_inertia:float,
              k_coefficients: list[float, float, float], method_ndip:str) -> float:
+        '''
+        1. original : is from Ronchi et al. 2022 paper, using the disk `characteristic_disk_temp` and `circularization_disk_radius`
+        2. gompertz : is from Gompertz et al. 2014 paper, using disk sound speed, `disk_cs`, viscosity parameter `disk_alpha` and radius `disk_radius`
+        3. rrayand : is based on https://wwwmpa.mpa-garching.mpg.de/~henk/pub/disksn.pdf, https://arxiv.org/pdf/2206.10645.pdf
+        '''
         # Auxiliary quantity beta as defined in eq. (72) of Pons & Vigano (2019).
         beta_ax = 1.0 / 4.0 * NS_radius ** 6 / (NS_inertia * const.C ** 3)
         mu = B * NS_radius**3
@@ -573,15 +576,11 @@ class MagnetarRonchi22:
             else:
                 raise ValueError()
         elif method_ndip == "gompertz":
-            ################################################################
-            ## Gompertz uses the disk's alfven radius
-            ## in the Bucciantini prescription,
-            ## but it should actually be the alfven radius of the NS wind...
-            ################################################################
+            # Gompertz uses the disk's alfven
             mu = B * NS_radius**3
             n_dip = - 2./3. * mu**2 * omega**3 / const.C**3 * (r_lc/r_m)**3
         elif method_ndip == "rryand":
-            #  Standard dipole spindown, no wind or disk
+            #  Standard dipole spindown
             mu = B * NS_radius**3
             n_dip = - 1./6. * mu**2 * omega**3 / const.C**3
         else:
@@ -618,11 +617,7 @@ class MagnetarRonchi22:
         else:
             raise KeyError()
 
-        # from rayand:
-        ###############################################
-        ## Check for inhibition by bar-mode instability
-        ## with beta = T/|W| parameter (Gompertz 2014)
-        ###############################################
+        # by bar-mode instability  beta = T/|W| (Gompertz 2014) Also used in Gibson+2017
         beta_bar_instab = MagnetarRonchi22.E_rot(omega=omega,NS_inertia=NS_inertia) \
                           / abs(MagnetarRonchi22.E_bind(NS_mass=NS_mass,NS_radius=NS_radius))
         if (beta_bar_instab > NS_critical_beta):
@@ -713,56 +708,14 @@ def plot_ronchi_magnetar(time: np.ndarray, solution : np.ndarray, v_ns : list, p
         color="black",
         )
 
-    # ax1.axvline(
-    #     x=t_prop, color="black", linestyle="--", linewidth=1, rasterized=True,
-    # )
-    # ax1.axvspan(
-    #     xmin=10 / const.YR_TO_S,
-    #     xmax=t_prop,
-    #     facecolor="gold",
-    #     alpha=0.3,
-    #     rasterized=True,
-    # )
-    # ax1.axvspan(
-    #     xmin=t_prop, xmax=t_max, facecolor="tab:orange", alpha=0.3, rasterized=True,
-    # )
+    ax2.plot( time, r_out, linestyle="-", linewidth=4, color="tab:red", )
+    ax2.plot( time, r_in, linestyle="-", linewidth=3, color="tab:red", )
+    ax2.plot( time, r_lc, linestyle="--", linewidth=1., color="black", )
+    ax2.plot( time, r_c, linestyle="--", linewidth=1., color="black", )
+    ax2.plot( time, r_m, linestyle="-.", linewidth=1.5, color="black", )
 
-    ax2.plot(
-        time, r_out, linestyle="-", linewidth=4, color="tab:red",
-    )
-    ax2.plot(
-        time, r_in, linestyle="-", linewidth=3, color="tab:red",
-    )
-    ax2.plot(
-        time, r_lc, linestyle="--", linewidth=1., color="black",
-    )
-    ax2.plot(
-        time, r_c, linestyle="--", linewidth=1., color="black",
-    )
-    ax2.plot(
-        time, r_m, linestyle="-.", linewidth=1.5, color="black",
-    )
-
-    # ax2.axvline(
-    #     x=t_prop, color="black", linestyle="--", linewidth=1, rasterized=True,
-    # )
-    # ax2.axvspan(
-    #     xmin=10 / const.YR_TO_S,
-    #     xmax=t_prop,
-    #     facecolor="gold",
-    #     alpha=0.3,
-    #     rasterized=True,
-    # )
-    # ax2.axvspan(
-    #     xmin=t_prop, xmax=t_max, facecolor="tab:orange", alpha=0.3, rasterized=True,
-    # )
-
-    ax2.axhline(
-        y=pars["NS_radius"], color="black", linestyle="-", linewidth=1, rasterized=True,
-    )
-    ax2.axhspan(
-        ymin=0.0, ymax=pars["NS_radius"], facecolor="tab:gray", hatch="/", alpha=1, rasterized=True,
-    )
+    ax2.axhline( y=pars["NS_radius"], color="black", linestyle="-", linewidth=1, rasterized=True, )
+    ax2.axhspan( ymin=0.0, ymax=pars["NS_radius"], facecolor="tab:gray", hatch="/", alpha=1, rasterized=True, )
     ax2.text(tmin*10, r_m[0] * 1.5, r"$r_{\rm m}$", fontsize=12, rotation=0, color="black")
     ax2.text(tmin*10, r_lc[0] * 2.5, r"$r_{\rm lc}$", fontsize=12, rotation=0, color="black")
     ax2.text(tmin*10, r_c[0] * 2.5, r"$r_{\rm cor}$", fontsize=12, rotation=0, color="black")
@@ -796,20 +749,6 @@ def plot_ronchi_magnetar(time: np.ndarray, solution : np.ndarray, v_ns : list, p
         linewidth=4,
         rasterized=True,
     )
-
-    # ax3.axvline(
-    #     x=t_prop, color="black", linestyle="--", linewidth=1, rasterized=True,
-    # )
-    # ax3.axvspan(
-    #     xmin=10 / const.YR_TO_S,
-    #     xmax=t_prop,
-    #     facecolor="gold",
-    #     alpha=0.3,
-    #     rasterized=True,
-    # )
-    # ax3.axvspan(
-    #     xmin=t_prop, xmax=t_max, facecolor="tab:orange", alpha=0.3, rasterized=True,
-    # )
 
     ax4.plot(
         np.ma.masked_where(mask1, time),
@@ -865,9 +804,7 @@ def plot_ronchi_magnetar(time: np.ndarray, solution : np.ndarray, v_ns : list, p
     ax4.text(tmin*10, (ldip+lacc)[0] / 300, r"$L_{\rm tot}$", fontsize=12, rotation=0, color="black")
 
     for axi in [ax1,ax2,ax3,ax4]:
-        axi.axvline(
-            x=t_prop, color="black", linestyle="--", linewidth=1, rasterized=True,
-        )
+        axi.axvline( x=t_prop, color="black", linestyle="--", linewidth=1, rasterized=True, )
         axi.axvspan(
             xmin=10 / const.YR_TO_S,
             xmax=t_prop,
@@ -875,9 +812,7 @@ def plot_ronchi_magnetar(time: np.ndarray, solution : np.ndarray, v_ns : list, p
             alpha=0.3,
             rasterized=True,
         )
-        axi.axvspan(
-            xmin=t_prop, xmax=t_max, facecolor="tab:orange", alpha=0.3, rasterized=True,
-        )
+        axi.axvspan( xmin=t_prop, xmax=t_max, facecolor="tab:orange", alpha=0.3, rasterized=True, )
         axi.grid()
         axi.set_xlim(time.min(),time.max())
     ax4.set_xlabel("time [s]")
@@ -945,64 +880,6 @@ def run_ronchi_magnetar(time_grid : np.ndarray, pars : dict, v_ns : list) -> np.
     # plt.loglog(time_grid, np.abs(solution[:, ikey("n_grav")]),color='red')
     # plt.show()
     return solution
-
-
-        # # Compute the inner and outer radius of the disk.
-        # r_in = np.minimum(r_m, r_lc)
-        # r_out = MagnetarRonchi22.disk_outer_radius_t(time_grid)
-        #
-        # # Check if the field could be buried in the initial stages (before the field decays
-        # # on an Ohmic timescale ~10^6 yr).
-        # buried = False
-        # if np.min(r_m[time_grid / const.YR_TO_S < 10 ^ 6]) < NS_radius:
-        #     buried = True
-        #     print("buried:", buried)
-        #
-        # # Check if the disk is disrupted because r_in > r_out and save the time when this happens.
-        # disk_disrupted = False
-        # t_disrupt = None
-        # if any(r_in > r_out):
-        #     disk_disrupted = True
-        #     t_disrupt = time_grid[r_in > r_out]
-        #     t_disrupt = t_disrupt[0]
-        #
-        #     # Re-run the evolution considering the time when the disk should be disrupted.
-        #     evol_output = np.array(
-        #         odeint(
-        #             Magnetar.derivatives_spin_evolution,
-        #             y0=initial_conditions,
-        #             t=time_grid,
-        #             args=(B0, Mdot_d0, t_disrupt),
-        #             tfirst=True,
-        #         )
-        #     )
-        #
-        #     print("disk disrupted:", disk_disrupted)
-        #
-        # # omega_t = np.array(evol_output[:, 1].tolist())
-        # # omega_t = np.array(evol_output[:, 1].tolist())
-        # # omega_t = np.array(evol_output[:, 1].tolist())
-        # B_t = np.array(evol_output[:, 0].tolist())
-        # omega_t = np.array(evol_output[:, 1].tolist())
-        # alpha_t = np.array(evol_output[:, 2].tolist())
-        #
-        # P_t = 2 * np.pi / omega_t
-        #
-        # omegadot_t, n_dip_t, n_acc_t, n_grav_t = \
-        #     Magnetar.omegadot_numpy(time_grid, omega_t, B_t, alpha_t, Mdot_d0, t_disrupt)
-        # Pdot_t = -(P_t ** 2) / (2.0 * np.pi) * omegadot_t
-        #
-        # Mdot_din = Magnetar.disk_accretion_rate_in_t_numpy(
-        #     B_t, omega_t, Mdot_d0, alpha_t, time_grid, t_disrupt
-        # )
-        #
-        # r_m = Magnetar.radius_magnetospheric(B_t, Mdot_din)
-        # r_c = Magnetar.radius_corotation(omega_t)
-        # r_lc = Magnetar.radius_lc(omega_t)
-        # # n_dip = Magnetar.Nd
-        #
-        # ldip = Magnetar.Ldip(n_dip_t, omega_t)
-        # lacc = Magnetar.Lcc(Mdot_din,n_acc_t,omega_t,r_m)
 
 def main():
     # ----------------- |SET PARAMETERS
